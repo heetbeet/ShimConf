@@ -1,31 +1,44 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-REM Detecting Visual Studio
-for /l %%i in (2040, -1, 2019) do (
-    if exist "C:\Program Files\Microsoft Visual Studio\%%i\Community\VC\Auxiliary\Build\vcvars64.bat" (
-        call "C:\Program Files\Microsoft Visual Studio\%%i\Community\VC\Auxiliary\Build\vcvars64.bat"
-        goto :found_vcvarsall
+REM Find python3, then run scripts/compile.py
+
+set python3=
+REM python.exe -V
+for /f "delims=" %%A in ('where python.exe') do (
+    for /f "delims=" %%B in ('"%%A" -V 2^>^&1') do (
+        if "%%B" gtr "Python 3" (
+            set "python3=%%A"
+            goto :python3_found
+        )
     )
 )
-echo Error: Visual Studio not found. Install Visual Studio with C++ support and try again.
-exit /b 1
 
-:found_vcvarsall
-
-REM Go to the project directory
-cd /d "%~dp0."
-
-REM Compile all the C++ files
-mkdir build 2> NUL
-for %%f in (*.cpp) do (
-    cl /c /Fobuild/ /EHsc /std:c++20 /W3 %%f
+REM python3.exe -V
+if not defined python3 (
+    for /f "delims=" %%A in ('where python.exe') do (
+        for /f "delims=" %%B in ('"%%A" -V 2^>^&1') do (
+            if "%%B" gtr "Python 3" (
+                set "python3=%%A"
+                goto :python3_found
+            )
+        )
+    )
 )
 
-REM Link all the object files to the executable
-mkdir dist 2> NUL
-link /out:dist\main.exe build\*.obj kernel32.lib
+REM "%USERPROFILE%\Anaconda3\python.exe" 
+if not defined python3 (
+    if exist "%USERPROFILE%\Anaconda3\python.exe" (
+        set "python3=%USERPROFILE%\Anaconda3\python.exe"
+        goto :python3_found
+    )
+)
 
-endlocal
+echo Error, no python 3 found, please install https://www.anaconda.com/download/
+exit /b -1
+
+:python3_found
+
+call "%python3%" "%~dp0\scripts\compile.py" %*
 
 if /i "%comspec% /c %~0 " equ "%cmdcmdline:"=%" pause
